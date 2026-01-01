@@ -3,6 +3,7 @@ package com.myphotocloud.app.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -11,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.myphotocloud.app.model.AppMode
 import kotlinx.coroutines.launch
@@ -97,43 +99,195 @@ private fun StandaloneScreen() {
 // ServerScreen을 재사용 가능하도록 내용만 분리
 @Composable
 fun ServerScreenContent() {
+    val context = LocalContext.current
+    val serverManager = remember { com.myphotocloud.app.server.ServerManager(context) }
+    val serverState by serverManager.serverState.collectAsState()
+    var portText by remember { mutableStateOf("8080") }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.Storage,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
+        // 서버 상태 카드
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = when (serverState) {
+                    is com.myphotocloud.app.server.ServerManager.ServerState.Running -> 
+                        MaterialTheme.colorScheme.primaryContainer
+                    is com.myphotocloud.app.server.ServerManager.ServerState.Error -> 
+                        MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "서버 상태",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Icon(
+                        imageVector = when (serverState) {
+                            is com.myphotocloud.app.server.ServerManager.ServerState.Running -> Icons.Default.CheckCircle
+                            is com.myphotocloud.app.server.ServerManager.ServerState.Error -> Icons.Default.Error
+                            else -> Icons.Default.Circle
+                        },
+                        contentDescription = null,
+                        tint = when (serverState) {
+                            is com.myphotocloud.app.server.ServerManager.ServerState.Running -> 
+                                MaterialTheme.colorScheme.primary
+                            is com.myphotocloud.app.server.ServerManager.ServerState.Error -> 
+                                MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                when (val state = serverState) {
+                    is com.myphotocloud.app.server.ServerManager.ServerState.Running -> {
+                        Text(
+                            text = "실행 중",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "IP 주소: ${state.ipAddress}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "포트: ${state.port}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "클라이언트 연결 주소:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "http://${state.ipAddress}:${state.port}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    is com.myphotocloud.app.server.ServerManager.ServerState.Error -> {
+                        Text(
+                            text = "오류",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "중지됨",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+        
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "서버 모드",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "다른 기기의 백업을 수신합니다",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         
-        Spacer(modifier = Modifier.height(32.dp))
+        // 포트 번호 입력 (서버가 중지된 경우에만)
+        if (serverState !is com.myphotocloud.app.server.ServerManager.ServerState.Running) {
+            OutlinedTextField(
+                value = portText,
+                onValueChange = { portText = it.filter { char -> char.isDigit() } },
+                label = { Text("포트 번호") },
+                placeholder = { Text("8080") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         
-        // TODO: 서버 상태 표시
+        // 시작/중지 버튼
+        Button(
+            onClick = {
+                when (serverState) {
+                    is com.myphotocloud.app.server.ServerManager.ServerState.Running -> {
+                        serverManager.stopServer()
+                    }
+                    else -> {
+                        val port = portText.toIntOrNull() ?: 8080
+                        if (port in 1..65535) {
+                            serverManager.startServer(port)
+                        }
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = if (serverState is com.myphotocloud.app.server.ServerManager.ServerState.Running) {
+                ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            } else {
+                ButtonDefaults.buttonColors()
+            }
+        ) {
+            Icon(
+                imageVector = if (serverState is com.myphotocloud.app.server.ServerManager.ServerState.Running) 
+                    Icons.Default.Stop 
+                else 
+                    Icons.Default.PlayArrow,
+                contentDescription = null
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                if (serverState is com.myphotocloud.app.server.ServerManager.ServerState.Running)
+                    "서버 중지"
+                else
+                    "서버 시작"
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 사용 안내
         Card(
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text("서버 상태", style = MaterialTheme.typography.titleMedium)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "사용 방법",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("실행 중...", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "1. '서버 시작' 버튼을 클릭하세요",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "2. 표시된 IP 주소를 클라이언트 기기에 입력하세요",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "3. 클라이언트 기기에서 백업을 시작하세요",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -149,6 +303,8 @@ fun ClientScreenContent() {
     
     var mediaFiles by remember { mutableStateOf<List<com.myphotocloud.app.model.MediaFile>>(emptyList()) }
     var isScanning by remember { mutableStateOf(false) }
+    var isCalculatingHash by remember { mutableStateOf(false) }
+    var hashProgress by remember { mutableStateOf<com.myphotocloud.app.repository.MediaRepository.HashProgress?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     
@@ -254,12 +410,82 @@ fun ClientScreenContent() {
         Spacer(modifier = Modifier.height(16.dp))
         
         // 스캔 버튼
-        Button(
-            onClick = { scanMedia() },
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isScanning
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(if (isScanning) "스캔 중..." else "미디어 파일 스캔")
+            Button(
+                onClick = { scanMedia() },
+                modifier = Modifier.weight(1f),
+                enabled = !isScanning && !isCalculatingHash
+            ) {
+                Text(if (isScanning) "스캔 중..." else "파일 스캔")
+            }
+            
+            Button(
+                onClick = {
+                    if (mediaFiles.isNotEmpty()) {
+                        isCalculatingHash = true
+                        hashProgress = null
+                        coroutineScope.launch {
+                            repository.calculateHashesWithProgress(mediaFiles)
+                                .collect { progress ->
+                                    withContext(Dispatchers.Main) {
+                                        hashProgress = progress
+                                    }
+                                }
+                            withContext(Dispatchers.Main) {
+                                isCalculatingHash = false
+                                // 해시 계산 후 파일 목록 새로고침
+                                scanMedia()
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                enabled = !isScanning && !isCalculatingHash && mediaFiles.isNotEmpty()
+            ) {
+                Text(if (isCalculatingHash) "계산 중..." else "해시 계산")
+            }
+        }
+        
+        // 해시 계산 진행률
+        hashProgress?.let { progress ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "해시 계산 중",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                            text = "${progress.processed}/${progress.total} (${progress.percentage.toInt()}%)",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = progress.percentage / 100f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = progress.currentFileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
         
         // 에러 메시지
@@ -341,12 +567,24 @@ private fun MediaFileItem(file: com.myphotocloud.app.model.MediaFile) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = file.fileName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = file.fileName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // 해시 상태 아이콘
+                    if (file.hash != null) {
+                        Icon(
+                            imageVector = Icons.Default.Done,
+                            contentDescription = "해시 계산됨",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${if (file.isVideo) "🎥" else "📷"} ${file.formattedSize}",

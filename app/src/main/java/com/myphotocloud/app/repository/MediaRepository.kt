@@ -8,6 +8,8 @@ import com.myphotocloud.app.database.BackupStatusEntity
 import com.myphotocloud.app.model.MediaFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
@@ -207,6 +209,83 @@ class MediaRepository(private val context: Context) {
             e.printStackTrace()
             null
         }
+    }
+    
+    /**
+     * 여러 파일의 해시를 계산하고 진행률을 Flow로 전달
+     * @return Flow<HashProgress>
+     */
+    fun calculateHashesWithProgress(files: List<MediaFile>): kotlinx.coroutines.flow.Flow<HashProgress> = 
+        kotlinx.coroutines.flow.flow {
+            val total = files.size
+            var processed = 0
+            var succeeded = 0
+            var failed = 0
+            
+            for (file in files) {
+                // 이미 해시가 있으면 건너뛰기
+                if (file.hash != null) {
+                    processed++
+                    succeeded++
+                    emit(HashProgress(processed, total, succeeded, failed, file.fileName))
+                    continue
+                }
+                
+                try {
+                    val hash = calculateHash(file.filePath)
+                    
+                    if (hash != null) {
+                        // DB에 저장 또는 업데이트
+                        val existing = dao.getByUri(file.uri.toString())
+                        if (existing != null) {
+                            dao.update(
+                                existing.copy(
+                                    hash = hash,
+                                    hashCalculatedAt = System.currentTimeMillis(),
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        } else {
+                            // 새로 생성
+                            dao.insert(
+                                BackupStatusEntity(
+                                    fileUri = file.uri.toString(),
+                                    fileName = file.fileName,
+                                    filePath = file.filePath,
+                                    fileSize = file.fileSize,
+                                    mimeType = file.mimeType,
+                                    dateModified = file.dateModified,
+                                    hash = hash,
+                                    hashCalculatedAt = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                        succeeded++
+                    } else {
+                        failed++
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    failed++
+                }
+                
+                processed++
+                emit(HashProgress(processed, total, succeeded, failed, file.fileName))
+            }
+        }.flowOn(Dispatchers.IO)
+    
+    /**
+     * 해시 계산 진행 상태
+     */
+    data class HashProgress(
+        val processed: Int,
+        val total: Int,
+        val succeeded: Int,
+        val failed: Int,
+        val currentFileName: String
+    ) {
+        val percentage: Float
+            get() = if (total > 0) (processed.toFloat() / total * 100) else 0f
     }
     
     /**

@@ -87,6 +87,9 @@ dependencies {
     // Accompanist (Permissions)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
     
+    // NanoHTTPD (HTTP Server)
+    implementation("org.nanohttpd:nanohttpd:2.3.1")
+    
     // Room (로컬 DB)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
