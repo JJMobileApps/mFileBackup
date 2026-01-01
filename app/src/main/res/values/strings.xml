@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">MyPhotoCloud</string>
+    
+    <!-- Welcome Screen -->
+    <string name="welcome_title">MyPhotoCloud에 오신 것을 환영합니다</string>
+    <string name="welcome_subtitle">이 기기를 어떻게 사용하시겠습니까?</string>
+    
+    <!-- Modes -->
+    <string name="mode_standalone">서버 + 백업</string>
+    <string name="mode_standalone_desc">이 폰에서 사진 보관 및 백업</string>
+    <string name="mode_client">백업만</string>
+    <string name="mode_client_desc">다른 기기로 백업</string>
+    <string name="mode_server">서버만</string>
+    <string name="mode_server_desc">가족 사진 보관 전용</string>
+    
+    <!-- Common -->
+    <string name="settings">설정</string>
+    <string name="start_backup">지금 백업하기</string>
+    <string name="server_status">서버 상태</string>
+    <string name="backup_status">백업 상태</string>
+</resources>
