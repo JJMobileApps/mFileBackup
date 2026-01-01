@@ -2,14 +2,22 @@
 package com.myphotocloud.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.myphotocloud.app.model.AppMode
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,47 +140,232 @@ fun ServerScreenContent() {
 }
 
 // ClientScreen을 재사용 가능하도록 내용만 분리
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ClientScreenContent() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val repository = remember { com.myphotocloud.app.repository.MediaRepository(context) }
+    
+    var mediaFiles by remember { mutableStateOf<List<com.myphotocloud.app.model.MediaFile>>(emptyList()) }
+    var isScanning by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    
+    // Android 버전에 따른 권한 요청
+    val permissions = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        // Android 13+
+        listOf(
+            android.Manifest.permission.READ_MEDIA_IMAGES,
+            android.Manifest.permission.READ_MEDIA_VIDEO
+        )
+    } else {
+        // Android 12 이하
+        listOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    
+    val permissionState = rememberMultiplePermissionsState(permissions)
+    
+    // 통계
+    val totalFiles = mediaFiles.size
+    val backedUpFiles = mediaFiles.count { it.isBackedUp }
+    val pendingFiles = totalFiles - backedUpFiles
+    val totalSize = mediaFiles.sumOf { it.fileSize }
+    val backedUpSize = mediaFiles.filter { it.isBackedUp }.sumOf { it.fileSize }
+    
+    // 미디어 스캔 함수
+    fun scanMedia() {
+        if (permissionState.allPermissionsGranted) {
+            isScanning = true
+            errorMessage = null
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val scannedFiles = repository.scanAllMedia()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        mediaFiles = scannedFiles
+                        isScanning = false
+                    }
+                } catch (e: Exception) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        errorMessage = e.message ?: "알 수 없는 오류"
+                        isScanning = false
+                    }
+                }
+            }
+        } else {
+            showPermissionDialog = true
+        }
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.CloudUpload,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "백업 모드",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "사진과 동영상을 자동으로 백업합니다",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // TODO: 백업 상태 표시
+        // 상단 통계
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            )
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text("백업 상태", style = MaterialTheme.typography.titleMedium)
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "백업 상태",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("준비 중...", style = MaterialTheme.typography.bodyMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "전체: ${totalFiles}개",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "완료: ${backedUpFiles}개",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "대기: ${pendingFiles}개",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "%.1f MB".format(totalSize / (1024f * 1024f)),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "%.1f MB".format(backedUpSize / (1024f * 1024f)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 스캔 버튼
+        Button(
+            onClick = { scanMedia() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isScanning
+        ) {
+            Text(if (isScanning) "스캔 중..." else "미디어 파일 스캔")
+        }
+        
+        // 에러 메시지
+        errorMessage?.let { error ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "오류: $error",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 파일 목록
+        if (mediaFiles.isEmpty() && !isScanning) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "스캔 버튼을 눌러 미디어 파일을 찾으세요",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn {
+                items(mediaFiles.size) { index ->
+                    val file = mediaFiles[index]
+                    MediaFileItem(file)
+                }
             }
         }
     }
+    
+    // 권한 요청 다이얼로그
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text("미디어 접근 권한 필요") },
+            text = {
+                Text(
+                    "사진과 동영상을 스캔하려면 미디어 파일 접근 권한이 필요합니다.\n\n" +
+                    "권한을 허용하시겠습니까?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        permissionState.launchMultiplePermissionRequest()
+                        showPermissionDialog = false
+                    }
+                ) {
+                    Text("허용")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
 }
+
+@Composable
+private fun MediaFileItem(file: com.myphotocloud.app.model.MediaFile) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = file.fileName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${if (file.isVideo) "🎥" else "📷"} ${file.formattedSize}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // 백업 상태 아이콘
+            Icon(
+                imageVector = if (file.isBackedUp) Icons.Default.CheckCircle else Icons.Default.CloudUpload,
+                contentDescription = if (file.isBackedUp) "백업 완료" else "백업 대기",
+                tint = if (file.isBackedUp) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 
