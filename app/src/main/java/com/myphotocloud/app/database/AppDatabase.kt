@@ -9,14 +9,15 @@ import androidx.room.RoomDatabase
  * MyPhotoCloud 앱 데이터베이스
  */
 @Database(
-    entities = [BackupStatusEntity::class, UserEntity::class],
-    version = 2,
+    entities = [BackupStatusEntity::class, UserEntity::class, DeviceApprovalEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     
     abstract fun backupStatusDao(): BackupStatusDao
     abstract fun userDao(): UserDao
+    abstract fun deviceApprovalDao(): DeviceApprovalDao
     
     companion object {
         @Volatile

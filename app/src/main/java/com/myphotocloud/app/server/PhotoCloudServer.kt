@@ -7,7 +7,9 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.myphotocloud.app.database.AppDatabase
 import com.myphotocloud.app.database.BackupStatusEntity
+import com.myphotocloud.app.database.DeviceApprovalEntity
 import com.myphotocloud.app.database.UserEntity
+import com.myphotocloud.app.utils.DeviceIdUtils
 import com.myphotocloud.app.utils.UserAuthUtils
 import fi.iki.elonen.NanoHTTPD
 import kotlinx.coroutines.runBlocking
@@ -27,12 +29,111 @@ class PhotoCloudServer(
     private val database = AppDatabase.getDatabase(context)
     private val dao = database.backupStatusDao()
     private val userDao = database.userDao()
+    private val deviceApprovalDao = database.deviceApprovalDao()
     
     // 기본 업로드 디렉토리 (파일 기반 저장소용)
     private val baseUploadDir: File by lazy {
         File(context.filesDir, "backups").apply {
             if (!exists()) mkdirs()
         }
+    }
+
+    private fun enforceDeviceApprovalIfEnabled(session: IHTTPSession): Response? {
+        val prefs = context.getSharedPreferences("server_settings", Context.MODE_PRIVATE)
+        val requireApproval = prefs.getBoolean("require_approval", false)
+        if (!requireApproval) return null
+
+        val deviceId = session.headers["x-device-id"]?.trim().orEmpty()
+        val deviceName = session.headers["x-device-name"]?.trim()?.takeIf { it.isNotBlank() }
+
+        val selfDeviceId = DeviceIdUtils.getOrCreateDeviceId(context)
+        if (deviceId.isNotBlank() && deviceId == selfDeviceId) {
+            return null
+        }
+
+        if (deviceId.isBlank()) {
+            return newFixedLengthResponse(
+                Response.Status.BAD_REQUEST,
+                "application/json",
+                JSONObject()
+                    .put("error", "MissingDeviceId")
+                    .put("message", "X-Device-Id header is required")
+                    .toString()
+            )
+        }
+
+        val existing = runBlocking { deviceApprovalDao.getByDeviceId(deviceId) }
+        val now = System.currentTimeMillis()
+
+        if (existing == null) {
+            runBlocking {
+                deviceApprovalDao.upsert(
+                    DeviceApprovalEntity(
+                        deviceId = deviceId,
+                        deviceName = deviceName,
+                        status = DeviceApprovalEntity.STATUS_PENDING,
+                        firstSeenAt = now,
+                        lastSeenAt = now,
+                        lastIp = null
+                    )
+                )
+            }
+
+            return newFixedLengthResponse(
+                Response.Status.FORBIDDEN,
+                "application/json",
+                JSONObject()
+                    .put("error", "DeviceNotApproved")
+                    .put("status", "pending")
+                    .toString()
+            )
+        }
+
+        if (existing.status == DeviceApprovalEntity.STATUS_APPROVED) {
+            if (existing.deviceName != deviceName) {
+                runBlocking {
+                    deviceApprovalDao.upsert(
+                        existing.copy(
+                            deviceName = deviceName ?: existing.deviceName,
+                            lastSeenAt = now
+                        )
+                    )
+                }
+            } else {
+                runBlocking { deviceApprovalDao.updateStatus(deviceId, existing.status, now) }
+            }
+            return null
+        }
+
+        if (existing.status == DeviceApprovalEntity.STATUS_DENIED) {
+            runBlocking { deviceApprovalDao.updateStatus(deviceId, existing.status, now) }
+            return newFixedLengthResponse(
+                Response.Status.FORBIDDEN,
+                "application/json",
+                JSONObject()
+                    .put("error", "DeviceNotApproved")
+                    .put("status", "denied")
+                    .toString()
+            )
+        }
+
+        runBlocking {
+            deviceApprovalDao.upsert(
+                existing.copy(
+                    deviceName = deviceName ?: existing.deviceName,
+                    lastSeenAt = now
+                )
+            )
+        }
+
+        return newFixedLengthResponse(
+            Response.Status.FORBIDDEN,
+            "application/json",
+            JSONObject()
+                .put("error", "DeviceNotApproved")
+                .put("status", "pending")
+                .toString()
+        )
     }
     
     override fun serve(session: IHTTPSession): Response {
@@ -47,12 +148,26 @@ class PhotoCloudServer(
                 return handleStatus(session)
             }
 
+            // 승인 요청은 인증 없이 허용 (승인 로직은 적용)
+            if (uri == "/api/approval/request" && method == Method.POST) {
+                val approvalResponse = enforceDeviceApprovalIfEnabled(session)
+                if (approvalResponse != null) return approvalResponse
+                return newFixedLengthResponse(
+                    Response.Status.OK,
+                    "application/json",
+                    JSONObject().put("ok", true).toString()
+                )
+            }
+
             // 그 외 API는 인증 필요
             val user = authenticate(session) ?: return newFixedLengthResponse(
                 Response.Status.UNAUTHORIZED,
                 "application/json",
                 JSONObject().put("error", "Unauthorized").toString()
             )
+
+            val approvalResponse = enforceDeviceApprovalIfEnabled(session)
+            if (approvalResponse != null) return approvalResponse
 
             when {
                 uri == "/api/check-hashes" && method == Method.POST -> handleCheckHashes(session, user)

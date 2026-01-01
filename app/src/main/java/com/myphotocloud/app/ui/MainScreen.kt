@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.myphotocloud.app.model.AppMode
+import com.myphotocloud.app.database.AppDatabase
+import com.myphotocloud.app.database.DeviceApprovalEntity
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,6 +63,8 @@ fun MainScreen(
         }
     }
 }
+
+private const val KEY_REQUIRE_APPROVAL = "require_approval"
 
 @Composable
 private fun ClientScreen() {
@@ -112,6 +116,21 @@ fun ServerScreenContent() {
     val serverManager = remember { com.myphotocloud.app.server.ServerManager(context) }
     val serverState by serverManager.serverState.collectAsState()
     var portText by remember { mutableStateOf("8080") }
+
+    val serverPrefs = remember {
+        context.getSharedPreferences("server_settings", android.content.Context.MODE_PRIVATE)
+    }
+
+    var requireApproval by remember {
+        mutableStateOf(serverPrefs.getBoolean(KEY_REQUIRE_APPROVAL, false))
+    }
+
+    val deviceApprovalDao = remember {
+        AppDatabase.getDatabase(context).deviceApprovalDao()
+    }
+    val pendingApprovals by deviceApprovalDao
+        .getByStatusFlow(DeviceApprovalEntity.STATUS_PENDING)
+        .collectAsState(initial = emptyList())
     
     Column(
         modifier = Modifier
@@ -223,6 +242,141 @@ fun ServerScreenContent() {
                 )
             )
             
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "사용자 접속 승인 사용",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "클라이언트가 최초 접속 시 서버의 승인 후 접속 가능",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = requireApproval,
+                        onCheckedChange = { checked ->
+                            requireApproval = checked
+                            serverPrefs.edit().putBoolean(KEY_REQUIRE_APPROVAL, checked).apply()
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        if (requireApproval) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "승인 요청 목록",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "대기: ${pendingApprovals.size}개",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (pendingApprovals.isEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "승인 대기 중인 단말이 없습니다.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        pendingApprovals.forEach { approval ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = approval.deviceName ?: "알 수 없는 단말",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = approval.deviceId,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(
+                                            onClick = {
+                                                val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO)
+                                                scope.launch {
+                                                    deviceApprovalDao.updateStatus(
+                                                        approval.deviceId,
+                                                        DeviceApprovalEntity.STATUS_DENIED
+                                                    )
+                                                }
+                                            }
+                                        ) {
+                                            Text("거절")
+                                        }
+                                        Button(
+                                            onClick = {
+                                                val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.IO)
+                                                scope.launch {
+                                                    deviceApprovalDao.updateStatus(
+                                                        approval.deviceId,
+                                                        DeviceApprovalEntity.STATUS_APPROVED
+                                                    )
+                                                }
+                                            }
+                                        ) {
+                                            Text("승인")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
         
@@ -557,14 +711,22 @@ fun AddUserScreen(
     }
 }
 
-// ClientScreen을 재사용 가능하도록 내용만 분리
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ClientScreenContent() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val repository = remember { com.myphotocloud.app.repository.MediaRepository(context) }
-    
+
+    val clientPrefs = remember {
+        context.getSharedPreferences("client_settings", android.content.Context.MODE_PRIVATE)
+    }
+
+    var serverHost by remember { mutableStateOf(clientPrefs.getString("server_host", "") ?: "") }
+    var serverPort by remember { mutableStateOf(clientPrefs.getInt("server_port", 8080).toString()) }
+    var connectionResult by remember { mutableStateOf<String?>(null) }
+    var isConnecting by remember { mutableStateOf(false) }
+
     var mediaFiles by remember { mutableStateOf<List<com.myphotocloud.app.model.MediaFile>>(emptyList()) }
     var isScanning by remember { mutableStateOf(false) }
     var isCalculatingHash by remember { mutableStateOf(false) }
@@ -622,12 +784,115 @@ fun ClientScreenContent() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "서버 연결",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = serverHost,
+                    onValueChange = {
+                        serverHost = it
+                        clientPrefs.edit().putString("server_host", it).apply()
+                    },
+                    label = { Text("서버 IP/도메인") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = serverPort,
+                    onValueChange = {
+                        serverPort = it
+                        it.toIntOrNull()?.let { p -> clientPrefs.edit().putInt("server_port", p).apply() }
+                    },
+                    label = { Text("포트") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val host = serverHost.trim()
+                            val port = serverPort.toIntOrNull() ?: -1
+                            if (host.isBlank() || port !in 1..65535) {
+                                connectionResult = "서버 주소/포트를 확인해 주세요."
+                                return@Button
+                            }
+
+                            val baseUrl = "http://$host:$port"
+                            isConnecting = true
+                            connectionResult = null
+                            coroutineScope.launch {
+                                val result = com.myphotocloud.app.utils.ServerApiClient.checkStatus(baseUrl)
+                                connectionResult = "연결 테스트: " + com.myphotocloud.app.utils.ServerApiClient.formatResultForUi(result)
+                                isConnecting = false
+                            }
+                        },
+                        enabled = !isConnecting,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (isConnecting) "확인 중..." else "연결 테스트")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val host = serverHost.trim()
+                            val port = serverPort.toIntOrNull() ?: -1
+                            if (host.isBlank() || port !in 1..65535) {
+                                connectionResult = "서버 주소/포트를 확인해 주세요."
+                                return@OutlinedButton
+                            }
+
+                            val baseUrl = "http://$host:$port"
+                            isConnecting = true
+                            connectionResult = null
+                            coroutineScope.launch {
+                                val result = com.myphotocloud.app.utils.ServerApiClient.requestApproval(context, baseUrl)
+                                connectionResult = "승인 요청: " + com.myphotocloud.app.utils.ServerApiClient.formatResultForUi(result)
+                                isConnecting = false
+                            }
+                        },
+                        enabled = !isConnecting,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("승인 요청")
+                    }
+                }
+
+                if (connectionResult != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        connectionResult!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // 상단 통계
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
