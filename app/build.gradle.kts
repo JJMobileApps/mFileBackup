@@ -90,6 +90,9 @@ dependencies {
     // NanoHTTPD (HTTP Server)
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     
+    // DocumentFile
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    
     // Room (로컬 DB)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
