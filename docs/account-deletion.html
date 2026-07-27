@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -94,25 +94,63 @@
             color: var(--danger);
         }
 
-        .lang {
-            margin-top: 36px;
-            padding-top: 28px;
+        .lang-switch {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+
+        .lang-btn {
+            background: none;
+            border: 1px solid var(--line);
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--muted);
+            transition: all 0.2s ease;
+        }
+
+        .lang-btn.active {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .lang-block {
+            display: none; /* JS로 선택된 언어만 표시 */
+            margin-top: 24px;
+            padding-top: 20px;
             border-top: 1px solid var(--line);
+        }
+
+        .developer-contact {
+            margin-top: 36px;
+            padding: 20px;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            border-radius: 12px;
         }
 
         a {
             color: var(--accent);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
 <main>
     <section class="card">
-        <span class="badge">Account Deletion / 계정 삭제 안내</span>
+        <span class="badge">Account Deletion Policy</span>
         <h1>mFileBackup Account Deletion</h1>
         <p class="lead">
             This page explains how users can request deletion of their mFileBackup account and related data.
-            Korean and English guidance is provided together for app store review and user support.
         </p>
         <p class="meta">
             Effective date: June 9, 2026<br>
@@ -120,13 +158,20 @@
             Developer: JJMobileApps
         </p>
 
+        <!-- 수동 언어 전환 버튼 -->
+        <div class="lang-switch">
+            <button type="button" class="lang-btn" id="btn-ko" onclick="switchLanguage('ko')">한국어</button>
+            <button type="button" class="lang-btn" id="btn-en" onclick="switchLanguage('en')">English</button>
+        </div>
+
         <div class="warning">
             Deleting an account may also remove access to backed-up data, user-specific folders, and related server records,
             depending on how the server administrator manages the server.
         </div>
 
-        <div class="lang">
-            <h2>한국어</h2>
+        <!-- 한국어 섹션 -->
+        <div id="lang-ko" class="lang-block">
+            <h2>계정 및 데이터 삭제 안내</h2>
 
             <h3>1. 계정 삭제 요청 방법</h3>
             <p>
@@ -159,10 +204,19 @@
             <p>
                 계정 삭제와 관련된 문의는 해당 서버 관리자에게 직접 요청해 주세요.
             </p>
+
+            <div class="developer-contact">
+                <h3>개발자 문의 (Developer Support)</h3>
+                <p>
+                    앱 오류, 기능 제안 또는 개발자 문의사항은 아래 이메일로 접수해 주시기 바랍니다.<br>
+                    <strong>Email:</strong> <a href="mailto:gwanny.dev@gmail.com">gwanny.dev@gmail.com</a>
+                </p>
+            </div>
         </div>
 
-        <div class="lang">
-            <h2>English</h2>
+        <!-- 영어 섹션 -->
+        <div id="lang-en" class="lang-block">
+            <h2>Account Deletion Guidance</h2>
 
             <h3>1. How to request account deletion</h3>
             <p>
@@ -195,8 +249,45 @@
             <p>
                 For account deletion requests or related questions, contact your server administrator directly.
             </p>
+
+            <div class="developer-contact">
+                <h3>Developer Support</h3>
+                <p>
+                    For app bug reports, technical inquiries, or general support, please contact the developer:<br>
+                    <strong>Email:</strong> <a href="mailto:gwanny.dev@gmail.com">gwanny.dev@gmail.com</a>
+                </p>
+            </div>
         </div>
     </section>
 </main>
+
+<script>
+    function switchLanguage(lang) {
+        // 모든 언어 블록 숨기기
+        document.getElementById('lang-ko').style.display = 'none';
+        document.getElementById('lang-en').style.display = 'none';
+        
+        // 버튼 스타일 초기화
+        document.getElementById('btn-ko').classList.remove('active');
+        document.getElementById('btn-en').classList.remove('active');
+
+        // 선택된 언어 표시 및 버튼 활성화
+        if (lang === 'ko') {
+            document.getElementById('lang-ko').style.display = 'block';
+            document.getElementById('btn-ko').classList.add('active');
+        } else {
+            document.getElementById('lang-en').style.display = 'block';
+            document.getElementById('btn-en').classList.add('active');
+        }
+    }
+
+    // 초기 자동 언어 감지 (한국어 사용자는 ko, 그 외는 en)
+    const userLang = navigator.language || navigator.userLanguage;
+    if (userLang.toLowerCase().startsWith('ko')) {
+        switchLanguage('ko');
+    } else {
+        switchLanguage('en');
+    }
+</script>
 </body>
 </html>
