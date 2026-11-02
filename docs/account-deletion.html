@@ -1,293 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Account Deletion | mFileBackup</title>
-    <style>
-        :root {
-            color-scheme: light;
-            --bg: #f6f7fb;
-            --card: #ffffff;
-            --text: #172033;
-            --muted: #5b6475;
-            --line: #dde3ee;
-            --accent: #2563eb;
-            --danger: #c62828;
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            font-family: "Segoe UI", Arial, sans-serif;
-            line-height: 1.65;
-            background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 220px);
-            color: var(--text);
-        }
-
-        main {
-            max-width: 920px;
-            margin: 0 auto;
-            padding: 32px 20px 72px;
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            padding: 28px;
-            box-shadow: 0 18px 40px rgba(23, 32, 51, 0.06);
-        }
-
-        h1, h2, h3 {
-            margin: 0 0 12px;
-            line-height: 1.25;
-        }
-
-        h1 {
-            font-size: 2rem;
-        }
-
-        h2 {
-            margin-top: 28px;
-            font-size: 1.3rem;
-        }
-
-        p, li {
-            color: var(--muted);
-        }
-
-        ul {
-            margin: 8px 0 0;
-            padding-left: 20px;
-        }
-
-        .lead {
-            font-size: 1.05rem;
-        }
-
-        .meta {
-            margin-top: 12px;
-            color: var(--muted);
-        }
-
-        .badge {
-            display: inline-block;
-            margin-bottom: 16px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: #e8f0ff;
-            color: var(--accent);
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-
-        .warning {
-            margin-top: 18px;
-            padding: 14px 16px;
-            border-radius: 14px;
-            background: #fff4f4;
-            border: 1px solid #f2c5c5;
-            color: var(--danger);
-        }
-
-        .lang-switch {
-            display: flex;
-            gap: 12px;
-            margin-top: 16px;
-            margin-bottom: 8px;
-        }
-
-        .lang-btn {
-            background: none;
-            border: 1px solid var(--line);
-            padding: 6px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            color: var(--muted);
-            transition: all 0.2s ease;
-        }
-
-        .lang-btn.active {
-            background: var(--accent);
-            color: #ffffff;
-            border-color: var(--accent);
-            font-weight: 600;
-        }
-
-        .lang-block {
-            display: none; /* JS로 선택된 언어만 표시 */
-            margin-top: 24px;
-            padding-top: 20px;
-            border-top: 1px solid var(--line);
-        }
-
-        .developer-contact {
-            margin-top: 36px;
-            padding: 20px;
-            background: #f8fafc;
-            border: 1px solid var(--line);
-            border-radius: 12px;
-        }
-
-        a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account and Data Deletion | mFileBackup</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f6f7fb; color: #172033; font-family: "Segoe UI", Arial, sans-serif; line-height: 1.7; }
+    main { max-width: 900px; margin: 32px auto; padding: 28px; background: white; border: 1px solid #dde3ee; border-radius: 16px; }
+    h1, h2 { line-height: 1.3; }
+    h2 { margin-top: 30px; font-size: 1.25rem; }
+    a { color: #1d4ed8; }
+    li { margin-bottom: 10px; }
+    .notice { padding: 16px; background: #eef3ff; border-radius: 10px; }
+    .meta { color: #526078; }
+    @media (max-width: 600px) { main { margin: 12px; padding: 20px; } }
+  </style>
 </head>
 <body>
 <main>
-    <section class="card">
-        <span class="badge">Account Deletion Policy</span>
-        <h1>mFileBackup Account Deletion</h1>
-        <p class="lead">
-            This page explains how users can request deletion of their mFileBackup account and related data.
-        </p>
-        <p class="meta">
-            Effective date: June 9, 2026<br>
-            App name: mFileBackup<br>
-            Developer: JJMobileApps
-        </p>
+  <h1>mFileBackup Account and Data Deletion</h1>
+  <p class="meta">App: mFileBackup<br>Developer: JJMobileApps<br>Last updated: November 2, 2026</p>
 
-        <!-- 수동 언어 전환 버튼 -->
-        <div class="lang-switch">
-            <button type="button" class="lang-btn" id="btn-ko" onclick="switchLanguage('ko')">한국어</button>
-            <button type="button" class="lang-btn" id="btn-en" onclick="switchLanguage('en')">English</button>
-        </div>
+  <p>mFileBackup is a self-hosted server and client application. Users operate their own server and choose where their accounts, backup files, and related data are stored. This page explains how to remove that information or request removal from the person who operates your server.</p>
 
-        <div class="warning">
-            Deleting an account may also remove access to backed-up data, user-specific folders, and related server records,
-            depending on how the server administrator manages the server.
-        </div>
+  <p class="notice">JJMobileApps does not operate your mFileBackup server and does not have access to, or authority to delete, its accounts or data. Account and data deletion is managed by the server owner or administrator. This page does not submit a deletion request or delete any data.</p>
 
-        <!-- 한국어 섹션 -->
-        <div id="lang-ko" class="lang-block">
-            <h2>계정 및 데이터 삭제 안내</h2>
+  <h2>If you operate your own server</h2>
+  <ol>
+    <li>On the device running the mFileBackup server, open the server's user management screen.</li>
+    <li>Select the user account you want to remove, choose Delete, and confirm. This removes the user account record; it does not automatically erase all backup files or related server data.</li>
+    <li>Separately review the account's storage folder and delete the backup files you want removed using the available file management tools. Check the location before deleting anything, especially if a folder contains data shared with other users.</li>
+    <li>Review and remove any remaining related data you control, including gallery or backup metadata, thumbnails, device approval records, logs, trash, and additional backup copies, as applicable to your setup. Account deletion alone does not guarantee removal of these items.</li>
+    <li>Stop or remove the relevant backup profiles on your client devices if you no longer want those devices to attempt backups. Review any files or settings retained on those devices separately.</li>
+  </ol>
+  <p>If you have uninstalled the client app, you can still manage deletion directly on the server device or through the server's available administration and storage tools. Deleting the app from a client device does not delete information stored on your server.</p>
 
-            <h3>1. 계정 삭제 요청 방법</h3>
-            <p>
-                mFileBackup의 사용자 계정은 앱 개발자가 아니라 사용자가 운영하는 서버 관리자에 의해 생성되고 관리됩니다.
-                계정 삭제가 필요한 경우 해당 서버 관리자에게 직접 요청해야 합니다.
-            </p>
+  <h2>If someone else operates your server</h2>
+  <p>Contact the person who gave you the server address and login credentials, using the contact method you already use with that person. Ask them to delete your mFileBackup account and the associated data you want removed. You do not need to reinstall the client app to contact them.</p>
+  <p>Include your username and enough information to identify the server, and specify whether your request includes backup files, metadata, device approval records, and other copies. Do not send your password. Ask the administrator to confirm what was deleted, what remains, and when any retained information will be removed.</p>
+  <p>JJMobileApps does not maintain a directory of independently operated servers or their administrators and cannot identify or contact your administrator, process deletion on their behalf, or recover access to your server.</p>
 
-            <h3>2. 삭제 대상 정보</h3>
-            <p>계정 삭제 요청 시 서버 관리자는 다음 항목을 삭제하거나 접근 불가 상태로 변경할 수 있습니다.</p>
-            <ul>
-                <li>사용자 로그인 계정 정보</li>
-                <li>사용자별 접근 권한 및 인증 정보</li>
-                <li>사용자별 백업 폴더 연결 정보</li>
-                <li>사용자와 연관된 일부 서버 기록 또는 메타데이터</li>
-            </ul>
+  <h2>Deletion scope and retained data</h2>
+  <p>Removing a user account is separate from deleting the files and other information associated with it. Disabling an account or revoking access is not the same as deleting the account and its data.</p>
+  <p>Data may remain in shared folders, logs, trash, storage snapshots, exports, or separate backups until the server owner removes it or the owner's retention settings expire. Original files on client devices are separate copies and must be managed on those devices.</p>
+  <p>The server owner decides the deletion scope and retention settings and is responsible for explaining any retained data, the reason for retention, and its retention period. JJMobileApps does not set or enforce a retention period for user-operated servers.</p>
 
-            <h3>3. 삭제되지 않을 수 있는 정보</h3>
-            <p>
-                서버 운영 방식에 따라 공용 백업 데이터, 시스템 로그, 법적 또는 보안상 보관이 필요한 일부 기록은 즉시 삭제되지 않을 수 있습니다.
-                이러한 경우에도 해당 계정으로의 추가 접근은 차단될 수 있습니다.
-            </p>
+  <h2>Processing time</h2>
+  <p>For your own server, deletion takes place when you perform the relevant actions, subject to your storage and backup configuration. For a server operated by someone else, contact its administrator for the processing time and confirmation. JJMobileApps does not process or monitor these requests.</p>
 
-            <h3>4. 처리 기간</h3>
-            <p>
-                계정 삭제 요청은 서버 관리자 또는 운영 환경에 따라 처리 시간이 달라질 수 있습니다.
-                일반적으로 합리적인 기간 내에 검토 및 처리됩니다.
-            </p>
-
-            <h3>5. 문의</h3>
-            <p>
-                계정 삭제와 관련된 문의는 해당 서버 관리자에게 직접 요청해 주세요.
-            </p>
-
-            <div class="developer-contact">
-                <h3>개발자 문의 (Developer Support)</h3>
-                <p>
-                    앱 오류, 기능 제안 또는 개발자 문의사항은 아래 이메일로 접수해 주시기 바랍니다.<br>
-                    <strong>Email:</strong> <a href="mailto:gwanny.dev@gmail.com">gwanny.dev@gmail.com</a>
-                </p>
-            </div>
-        </div>
-
-        <!-- 영어 섹션 -->
-        <div id="lang-en" class="lang-block">
-            <h2>Account Deletion Guidance</h2>
-
-            <h3>1. How to request account deletion</h3>
-            <p>
-                mFileBackup accounts are created and managed by the server administrator, not by the app developer.
-                If you want your account deleted, you should request deletion directly from your server administrator.
-            </p>
-
-            <h3>2. Data that may be deleted</h3>
-            <p>When an account deletion request is processed, the server administrator may delete or disable access to:</p>
-            <ul>
-                <li>User login account information</li>
-                <li>User access permissions and authentication data</li>
-                <li>User-specific backup folder mappings</li>
-                <li>Some server records or metadata associated with the user</li>
-            </ul>
-
-            <h3>3. Data that may not be deleted immediately</h3>
-            <p>
-                Depending on how the server is managed, shared backup data, system logs, or records required for legal or security reasons
-                may not be removed immediately. Even in those cases, further access by the deleted account may be disabled.
-            </p>
-
-            <h3>4. Processing time</h3>
-            <p>
-                Account deletion requests may take time depending on the server administrator and operating environment.
-                Requests are generally reviewed and handled within a reasonable period.
-            </p>
-
-            <h3>5. Contact</h3>
-            <p>
-                For account deletion requests or related questions, contact your server administrator directly.
-            </p>
-
-            <div class="developer-contact">
-                <h3>Developer Support</h3>
-                <p>
-                    For app bug reports, technical inquiries, or general support, please contact the developer:<br>
-                    <strong>Email:</strong> <a href="mailto:gwanny.dev@gmail.com">gwanny.dev@gmail.com</a>
-                </p>
-            </div>
-        </div>
-    </section>
+  <h2>Technical support</h2>
+  <p>For questions about how to use the app's features, contact <a href="mailto:gwanny.dev@gmail.com">gwanny.dev@gmail.com</a>. This address is for technical support, not a channel for deleting accounts or files from independently operated servers. Do not send passwords, private backup files, or other sensitive account information.</p>
 </main>
-
-<script>
-    function switchLanguage(lang) {
-        // 모든 언어 블록 숨기기
-        document.getElementById('lang-ko').style.display = 'none';
-        document.getElementById('lang-en').style.display = 'none';
-        
-        // 버튼 스타일 초기화
-        document.getElementById('btn-ko').classList.remove('active');
-        document.getElementById('btn-en').classList.remove('active');
-
-        // 선택된 언어 표시 및 버튼 활성화
-        if (lang === 'ko') {
-            document.getElementById('lang-ko').style.display = 'block';
-            document.getElementById('btn-ko').classList.add('active');
-        } else {
-            document.getElementById('lang-en').style.display = 'block';
-            document.getElementById('btn-en').classList.add('active');
-        }
-    }
-
-    // 초기 자동 언어 감지 (한국어 사용자는 ko, 그 외는 en)
-    const userLang = navigator.language || navigator.userLanguage;
-    if (userLang.toLowerCase().startsWith('ko')) {
-        switchLanguage('ko');
-    } else {
-        switchLanguage('en');
-    }
-</script>
 </body>
 </html>
